@@ -3,6 +3,6 @@
 enum OutputSymFormats
 {
     None = 0,
-    NoChashGba,
+    NoCashGba,
     Max
 }
