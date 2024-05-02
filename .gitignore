@@ -1,0 +1,6 @@
+/.vs/*
+/bin/*
+/obj/*
+/FasToSym.csproj.user
+/Properties/launchSettings.json
+/Properties/PublishProfiles/FolderProfile.pubxml.user
