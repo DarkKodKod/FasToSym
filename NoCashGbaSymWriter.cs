@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using static System.Net.Mime.MediaTypeNames;
 using System.Text;
 
 namespace FasToSym;
@@ -9,14 +8,15 @@ namespace FasToSym;
 internal class NoCashGbaSymWriter : IWriter
 {
     private const string Extension = ".sym";
+    private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
 
-    // .arm          ;following code is in 32bit/ARM format
-    // .thumb        ; following code is in 16bit/THUMB format
-    // .byt:NNNN     ; next NNNN bytes are 8bit data(dcb lines)
-    // .wrd:NNNN     ;next NNNN bytes are 16bit data(dcw lines)
-    // .dbl:NNNN     ;next NNNN bytes are 32bit data(dcd lines)
-    // .asc:NNNN     ;next NNNN bytes are ascii data(quoted dcb lines)
-    // .pool         ;dummy label(indicates that following is literal pool)
+    private const string ARM    = ".arm";    // following code is in 32bit/ARM format
+    private const string THUMB  = ".thumb";  // following code is in 16bit/THUMB format
+    private const string BYTE   = ".byt:";   // next NNNN bytes are 8bit data(dcb lines)
+    private const string WORD   = ".wrd:";   // next NNNN bytes are 16bit data(dcw lines)
+    private const string DOUBLE = ".dbl:";   // next NNNN bytes are 32bit data(dcd lines)
+    private const string ASCII  = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
+    private const string POOL   = ".pool";   // dummy label(indicates that following is literal pool)
 
     public Collection<string> Errors { get; } = [];
 
@@ -43,16 +43,18 @@ internal class NoCashGbaSymWriter : IWriter
         {
             if (assemblyLine.address == 0)
                 continue;
+
+            byte[] addressBytes = new UTF8Encoding(true).GetBytes(assemblyLine.address.ToString("X8"));
+            fs.Write(addressBytes, 0, addressBytes.Length);
+            byte[] labelBytes = new UTF8Encoding(true).GetBytes(" TODO");
+            fs.Write(labelBytes, 0, labelBytes.Length);
+            fs.Write(Newline, 0, Newline.Length);
         }
 
         return true;
     }
 }
 
-//    private readonly Collection<string[]> _inputFileLine = [];
-//
-//    private readonly byte[] _newline = Encoding.ASCII.GetBytes(Environment.NewLine);
-//
 //    public bool GenerateSymFile()
 //    {
 //        Collection<string> currentLabels = [];
@@ -96,74 +98,47 @@ internal class NoCashGbaSymWriter : IWriter
 //
 //            string address = arrayOfElements[0].Split(':')[1];
 //
-//            if (currentLabels.Count > 0)
-//            {
-//                WriteLabels(fs, currentLabels, address);
-//
-//                typesFromLabel = true;
-//            }
-//
 //            if (dataTypeExists && typesFromLabel)
 //            {
-//                WriteDataType(arrayOfElements, fs);
+//                StringBuilder sb = new();
+//        
+//                sb.Append(arrayOfElements[0].Split(':')[1]);
+//                sb.Append(' ');
+//        
+//                int dataSize = 0;
+//        
+//                // TODO: Detect for ascii, short
+//                if (arrayOfElements[3] == ".byte")
+//                {
+//                    sb.Append(".byt:");
+//                    dataSize = 1;
+//                }
+//                else if (arrayOfElements[3] == ".long")
+//                {
+//                    sb.Append(".dbl:");
+//                    dataSize = 4;
+//                }
+//                else if (arrayOfElements[3] == ".word")
+//                {
+//                    sb.Append(".wrd:");
+//                    dataSize = 2;
+//                }
+//        
+//                int countCommas = 1;
+//                for (int i = 4; i < arrayOfElements.Length; i++)
+//                {
+//                    int count = arrayOfElements[i].Count(c => c == ',');
+//        
+//                    countCommas += count;
+//                }
+//        
+//                sb.Append($"{(countCommas * dataSize):X4}");
+//        
+//                byte[] info = new UTF8Encoding(true).GetBytes(sb.ToString());
+//                fs.Write(info, 0, info.Length);
+//                fs.Write(_newline, 0, _newline.Length);
 //            }
 //        }
 //
 //        return true;
-//    }
-//
-//    private void WriteLabels(FileStream fs, Collection<string> currentLabels, string address)
-//    {
-//        // write labels
-//        foreach (string label in currentLabels)
-//        {
-//            byte[] addressBytes = new UTF8Encoding(true).GetBytes(address.ToString() + " ");
-//            fs.Write(addressBytes, 0, addressBytes.Length);
-//            byte[] labelBytes = new UTF8Encoding(true).GetBytes(label.ToString());
-//            fs.Write(labelBytes, 0, labelBytes.Length);
-//            fs.Write(_newline, 0, _newline.Length);
-//        }
-//
-//        currentLabels.Clear();
-//    }
-//
-//    private void WriteDataType(string[] arrayOfElements, FileStream fs)
-//    {
-//        StringBuilder sb = new();
-//
-//        sb.Append(arrayOfElements[0].Split(':')[1]);
-//        sb.Append(' ');
-//
-//        int dataSize = 0;
-//
-//        // TODO: Detect for ascii, short
-//        if (arrayOfElements[3] == ".byte")
-//        {
-//            sb.Append(".byt:");
-//            dataSize = 1;
-//        }
-//        else if (arrayOfElements[3] == ".long")
-//        {
-//            sb.Append(".dbl:");
-//            dataSize = 4;
-//        }
-//        else if (arrayOfElements[3] == ".word")
-//        {
-//            sb.Append(".wrd:");
-//            dataSize = 2;
-//        }
-//
-//        int countCommas = 1;
-//        for (int i = 4; i < arrayOfElements.Length; i++)
-//        {
-//            int count = arrayOfElements[i].Count(c => c == ',');
-//
-//            countCommas += count;
-//        }
-//
-//        sb.Append($"{(countCommas * dataSize):X4}");
-//
-//        byte[] info = new UTF8Encoding(true).GetBytes(sb.ToString());
-//        fs.Write(info, 0, info.Length);
-//        fs.Write(_newline, 0, _newline.Length);
 //    }
