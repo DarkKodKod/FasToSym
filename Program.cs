@@ -31,8 +31,8 @@ for (int i = 0; i < args.Length; i++)
 
         string outputType = args[i];
 
-        if (outputType?.ToLower() == "nochashgba")
-            outputFormat = OutputSymFormats.NoChashGba;
+        if (outputType.Equals(OutputSymFormats.NoCashGba.ToString(), StringComparison.CurrentCultureIgnoreCase))
+            outputFormat = OutputSymFormats.NoCashGba;
     }
 }
 
@@ -52,7 +52,7 @@ if (fasFile == null || !fasFile.IsValid())
 
 switch (outputFormat)
 {
-    case OutputSymFormats.NoChashGba:
+    case OutputSymFormats.NoCashGba:
         writer = new NoCashGbaSymWriter();
         break;
     case OutputSymFormats.None:
