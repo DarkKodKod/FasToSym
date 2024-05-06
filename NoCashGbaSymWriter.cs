@@ -70,24 +70,72 @@ internal partial class NoCashGbaSymWriter : IWriter
 
     private void WriteToFile(FileStream fs)
     {
+        bool fromLabel = false;
+
         foreach (SymbolLine symbol in _symbolInformation)
         {
-            TestWriteOrg(fs, in symbol);
-            TestWriteCode16(fs, in symbol);
-            TestLabel(fs, in symbol);
-            TestDataTypes(fs, in symbol);
+            if (TestWriteOrg(fs, in symbol))
+            {
+                continue;
+            }
+            else if (TestWriteCode16(fs, in symbol))
+            {
+                continue;
+            }
+            else if (TestLabel(fs, in symbol))
+            {
+                fromLabel = true;
+                continue;
+            }
+            else if (fromLabel == true && 
+                TestDataTypes(fs, in symbol))
+            {
+                continue;
+            }
+            else
+            {
+                // normal code.
+                fromLabel = false;
+            }
         }
     }
 
-    private void TestDataTypes(FileStream fs, in SymbolLine symbol)
+    private bool TestDataTypes(FileStream fs, in SymbolLine symbol)
     {
         string[] array = symbol.sourceLine.Split(' ');
         if (array.Length > 0)
         {
             // detect bytes
-            if (array[0] == "db")
+            if (array[0] == "db" ||
+                array[0].StartsWith("db("))
             {
+                int size = 1;
 
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
+                WriteLine(fs, symbol.address, BYTE + size.ToString("X4"));
+
+                return true;
+            }
+            // detect words
+            else if (array[0] == "dw" ||
+                array[0].StartsWith("dw("))
+            {
+                int size = 2;
+
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
+                WriteLine(fs, symbol.address, WORD + size.ToString("X4"));
+
+                return true;
             }
             // detect doubles
             else if (array[0] == "dd" ||
@@ -95,30 +143,48 @@ internal partial class NoCashGbaSymWriter : IWriter
             {
                 int size = 4;
 
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
                 WriteLine(fs, symbol.address, DOUBLE + size.ToString("X4"));
+
+                return true;
             }
         }
+
+        return false;
     }
 
-    private void TestLabel(FileStream fs, in SymbolLine symbol)
+    private bool TestLabel(FileStream fs, in SymbolLine symbol)
     {
         if (symbol.sourceLine.Contains(':'))
         {
             string[] array = symbol.sourceLine.Split(' ');
 
             WriteLine(fs, symbol.address, array[0][..^1]);
+
+            return true;
         }
+
+        return false;
     }
 
-    private void TestWriteCode16(FileStream fs, in SymbolLine symbol)
+    private bool TestWriteCode16(FileStream fs, in SymbolLine symbol)
     {
         if (symbol.sourceLine == "code16")
         {
             WriteLine(fs, symbol.address, THUMB);
+
+            return true;
         }
+
+        return false;
     }
 
-    private void TestWriteOrg(FileStream fs, in SymbolLine symbol)
+    private bool TestWriteOrg(FileStream fs, in SymbolLine symbol)
     {
         Regex regex = IsOrg();
         if (regex.IsMatch(symbol.sourceLine))
@@ -126,7 +192,11 @@ internal partial class NoCashGbaSymWriter : IWriter
             string value = symbol.sourceLine.Split('x')[1];
             int decValue = Convert.ToInt32(value, 16);
             WriteLine(fs, (ulong)decValue, ARM);
+
+            return true;
         }
+
+        return false;
     }
 
     private void WriteLine(FileStream fs, ulong address, string text)
