@@ -1,5 +1,5 @@
 # FasToSym
-Tool to convert .fas symbols files from FASM (Flat assembler) to any type of Symbol format.
+Command line tool to convert .fas symbols files from FASM (Flat assembler) to any type of Symbol format.
 
 > ⚠️Now it is only implemented for the No$Gba .SYM file format. But the idea is to have an easy way to from a commmand line to convert the FAS file to anything.
 
@@ -15,7 +15,9 @@ eg: .\FasToSym -i mygame.fas -t nocashgba
 ```
 This should generate in the same folder with the same name but with the extension .SYM.
 
-## 2. GBA symbols for No$Gba.
+## 2. Output files
+
+### 2.1 GBA symbols for No$Gba.
 
 When developping homebrew for the Nintendo Game Boy Advance using FASMARM, https://arm.flatassembler.net/, it is important to debug with symbols. So in order to generate them, we can use:
 ```
