@@ -132,7 +132,7 @@ public class FasFile
     public string OutputFileName { get; private set; } = string.Empty;
 
     public FasFile(string fasFilePath)
-	{
+    {
         if (string.IsNullOrEmpty(fasFilePath) ||
             !File.Exists(fasFilePath))
         {
@@ -164,9 +164,9 @@ public class FasFile
 
     private void ProcessFile()
     {
-        using FileStream fs = new (_inputFile, FileMode.Open, FileAccess.Read);
+        using FileStream fs = new(_inputFile, FileMode.Open, FileAccess.Read);
         using BinaryReader br = new(fs);
-        
+
         br.BaseStream.Position = 0;
 
         if (!ReadHeader(br))
@@ -476,7 +476,7 @@ public class FasFile
             };
 
             uint offsetSourceFile = br.ReadUInt32();
-            
+
             if (offsetSourceFile == 0)
             {
                 line.sourceFile = InputFileName;
@@ -484,7 +484,7 @@ public class FasFile
             else
             {
                 line.sourceFile = GetNameOfFile(br, offsetSourceFile);
-            }                
+            }
 
             uint secondInteger = br.ReadUInt32();
 
@@ -589,7 +589,13 @@ public class FasFile
                     break;
                 default:    // Non token character
                     {
-                        sb.Append(Encoding.GetString([token]));
+                        string character = Encoding.GetString([token]);
+
+                        sb.Append(character);
+                        if (character == ":")
+                        {
+                            sb.Append(' ');
+                        }
 
                         tokenUsed = false;
                     }
@@ -599,7 +605,7 @@ public class FasFile
             token = ReadByte();
         }
 
-        actualLine = sb.ToString();
+        actualLine = sb.ToString().Trim();
 
         return bytesCounter;
     }
@@ -737,17 +743,17 @@ public class FasFile
     [Flags]
     public enum SymbolFlags
     {
-        SymbolWasDefined                = 0x000,
-        SymbolInAssemblyTimeVariable    = 0x002,
+        SymbolWasDefined = 0x000,
+        SymbolInAssemblyTimeVariable = 0x002,
         SymbolCannotBeForwardReferenced = 0x004,
-        SymbolWasUsed                   = 0x008,
-        PredictionWasNeededWasUsed      = 0x010,
-        ResultLastPredictedUsed         = 0x020,
-        PredictionWasNeededWasDefined   = 0x040,               
-        ResultLastPredictionDefined     = 0x080,
-        OptimizationAppliedToValue      = 0x100,
-        ValueIsNegativeNumberEncoded    = 0x200,
-        SymbolIsSpecialMarker           = 0x400
+        SymbolWasUsed = 0x008,
+        PredictionWasNeededWasUsed = 0x010,
+        ResultLastPredictedUsed = 0x020,
+        PredictionWasNeededWasDefined = 0x040,
+        ResultLastPredictionDefined = 0x080,
+        OptimizationAppliedToValue = 0x100,
+        ValueIsNegativeNumberEncoded = 0x200,
+        SymbolIsSpecialMarker = 0x400
     }
 
     // Table 2.2  Symbol value types
@@ -777,14 +783,14 @@ public class FasFile
     //  \-------------------------------------------------------------------/     
     public enum SymbolValueType
     {
-        AbsoluteValue                   = 0,
-        RelocatableSegmentAddress       = 1,
-        Relocatable32bitAddress         = 2,
+        AbsoluteValue = 0,
+        RelocatableSegmentAddress = 1,
+        Relocatable32bitAddress = 2,
         RelocatableRelative32bitAddress = 3,
-        Relocatable64bitAddress         = 4,
-        GOTRelative32bitAddress         = 5,
-        AddressPLTEntry                 = 6,
-        AddressPLTEntryRelative         = 7
+        Relocatable64bitAddress = 4,
+        GOTRelative32bitAddress = 5,
+        AddressPLTEntry = 6,
+        AddressPLTEntryRelative = 7
     }
 
     // Table 2.3  Register codes for extended SIB
@@ -870,44 +876,44 @@ public class FasFile
     public enum RegisterCode
     {
         None = 0x00,
-        BX   = 0x23,
-        BP   = 0x25,
-        SI   = 0x26,
-        DI   = 0x27,
-        EAX  = 0x40,
-        ECX  = 0x41,
-        EDX  = 0x42,
-        EBX  = 0x43,
-        ESP  = 0x44,
-        EBP  = 0x45,
-        ESI  = 0x46,
-        EDI  = 0x47,
-        R8D  = 0x48,
-        R9D  = 0x49,
+        BX = 0x23,
+        BP = 0x25,
+        SI = 0x26,
+        DI = 0x27,
+        EAX = 0x40,
+        ECX = 0x41,
+        EDX = 0x42,
+        EBX = 0x43,
+        ESP = 0x44,
+        EBP = 0x45,
+        ESI = 0x46,
+        EDI = 0x47,
+        R8D = 0x48,
+        R9D = 0x49,
         R10D = 0x4A,
         R11D = 0x4B,
         R12D = 0x4C,
         R13D = 0x4D,
         R14D = 0x4E,
         R15D = 0x4F,
-        RAX  = 0x80,
-        RCX  = 0x81,
-        RDX  = 0x82,
-        RBX  = 0x83,
-        RSP  = 0x84,
-        RBP  = 0x85,
-        RSI  = 0x86,
-        RDI  = 0x87,
-        R8   = 0x88,
-        R9   = 0x89,
-        R10  = 0x8A,
-        R11  = 0x8B,
-        R12  = 0x8C,
-        R13  = 0x8D,
-        R14  = 0x8E,
-        R15  = 0x8F,
-        EIP  = 0x94,
-        RIP  = 0x98
+        RAX = 0x80,
+        RCX = 0x81,
+        RDX = 0x82,
+        RBX = 0x83,
+        RSP = 0x84,
+        RBP = 0x85,
+        RSI = 0x86,
+        RDI = 0x87,
+        R8 = 0x88,
+        R9 = 0x89,
+        R10 = 0x8A,
+        R11 = 0x8B,
+        R12 = 0x8C,
+        R13 = 0x8D,
+        R14 = 0x8E,
+        R15 = 0x8F,
+        EIP = 0x94,
+        RIP = 0x98
     }
 
     // The symbol references dump contains an array of 8-byte structures, each

@@ -45,7 +45,7 @@ if (fasFile == null || !fasFile.IsValid())
             Console.WriteLine(error);
         }
     }
-    
+
     HelpContent.Print();
     return 1;
 }

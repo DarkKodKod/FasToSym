@@ -10,13 +10,13 @@ internal partial class NoCashGbaSymWriter : IWriter
 {
     private const string Extension = ".sym";
     private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
-    private const string ARM    = ".arm";    // following code is in 32bit/ARM format
-    private const string THUMB  = ".thumb";  // following code is in 16bit/THUMB format
-    private const string BYTE   = ".byt:";   // next NNNN bytes are 8bit data(dcb lines)
-    private const string WORD   = ".wrd:";   // next NNNN bytes are 16bit data(dcw lines)
+    private const string ARM = ".arm";    // following code is in 32bit/ARM format
+    private const string THUMB = ".thumb";  // following code is in 16bit/THUMB format
+    private const string BYTE = ".byt:";   // next NNNN bytes are 8bit data(dcb lines)
+    private const string WORD = ".wrd:";   // next NNNN bytes are 16bit data(dcw lines)
     private const string DOUBLE = ".dbl:";   // next NNNN bytes are 32bit data(dcd lines)
-    private const string ASCII  = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
-    private const string POOL   = ".pool";   // dummy label(indicates that following is literal pool)
+    private const string ASCII = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
+    private const string POOL = ".pool";   // dummy label(indicates that following is literal pool)
 
     private struct SymbolLine(ulong address, string sourceLine)
     {
@@ -46,7 +46,7 @@ internal partial class NoCashGbaSymWriter : IWriter
         {
             Errors.Add("Error: There are no symbols or the symbols could not find its preprocessed source.");
             return false;
-        }   
+        }
 
         WriteToFile(fs);
 
@@ -71,11 +71,14 @@ internal partial class NoCashGbaSymWriter : IWriter
     private void WriteToFile(FileStream fs)
     {
         bool fromLabel = false;
+        bool firstOrg = true;
 
         foreach (SymbolLine symbol in _symbolInformation)
         {
-            if (TestWriteOrg(fs, in symbol))
+            if (firstOrg == true &&
+                TestWriteOrg(fs, in symbol))
             {
+                firstOrg = false;
                 continue;
             }
             else if (TestWriteCode16(fs, in symbol))
@@ -87,69 +90,37 @@ internal partial class NoCashGbaSymWriter : IWriter
                 fromLabel = true;
                 continue;
             }
-            else if (fromLabel == true && 
-                TestDataTypes(fs, in symbol))
+            else if (TestVariables(fs, in symbol))
             {
+                fromLabel = false;
                 continue;
             }
-            else
+            else if (fromLabel == true)
             {
-                // normal code.
-                fromLabel = false;
+                string[] array = symbol.sourceLine.Split(' ');
+
+                if (CheckIfIsDataTypes(array, out string line))
+                {
+                    WriteLine(fs, symbol.address, line);
+                    continue;
+                }
             }
+
+            // normal code.
+            fromLabel = false;
         }
     }
 
-    private bool TestDataTypes(FileStream fs, in SymbolLine symbol)
+    private bool TestVariables(FileStream fs, in SymbolLine symbol)
     {
         string[] array = symbol.sourceLine.Split(' ');
-        if (array.Length > 0)
+
+        if (array.Length > 1)
         {
-            // detect bytes
-            if (array[0] == "db" ||
-                array[0].StartsWith("db("))
+            if (CheckIfIsDataTypes(array[1..], out string line))
             {
-                int size = 1;
-
-                string[] countElements = array[1].Split(',');
-                if (countElements.Length > 1)
-                {
-                    size *= countElements.Length;
-                }
-
-                WriteLine(fs, symbol.address, BYTE + size.ToString("X4"));
-
-                return true;
-            }
-            // detect words
-            else if (array[0] == "dw" ||
-                array[0].StartsWith("dw("))
-            {
-                int size = 2;
-
-                string[] countElements = array[1].Split(',');
-                if (countElements.Length > 1)
-                {
-                    size *= countElements.Length;
-                }
-
-                WriteLine(fs, symbol.address, WORD + size.ToString("X4"));
-
-                return true;
-            }
-            // detect doubles
-            else if (array[0] == "dd" ||
-                array[0].StartsWith("dd("))
-            {
-                int size = 4;
-
-                string[] countElements = array[1].Split(',');
-                if (countElements.Length > 1)
-                {
-                    size *= countElements.Length;
-                }
-
-                WriteLine(fs, symbol.address, DOUBLE + size.ToString("X4"));
+                WriteLine(fs, symbol.address, array[0]);
+                WriteLine(fs, symbol.address, line);
 
                 return true;
             }
@@ -165,6 +136,14 @@ internal partial class NoCashGbaSymWriter : IWriter
             string[] array = symbol.sourceLine.Split(' ');
 
             WriteLine(fs, symbol.address, array[0][..^1]);
+
+            if (array.Length > 1)
+            {
+                if (CheckIfIsDataTypes(array[1..], out string line))
+                {
+                    WriteLine(fs, symbol.address, line);
+                }
+            }
 
             return true;
         }
@@ -206,6 +185,59 @@ internal partial class NoCashGbaSymWriter : IWriter
         byte[] labelBytes = new UTF8Encoding(true).GetBytes($" {text}");
         fs.Write(labelBytes, 0, labelBytes.Length);
         fs.Write(Newline, 0, Newline.Length);
+    }
+
+    private bool CheckIfIsDataTypes(in string[] array, out string line)
+    {
+        line = string.Empty;
+
+        if (array.Length > 0)
+        {
+            // detect bytes
+            if (array[0] == "db" ||
+                array[0].StartsWith("db("))
+            {
+                int size = 1;
+
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
+                line = BYTE + size.ToString("X4");
+            }
+            // detect words
+            else if (array[0] == "dw" ||
+                array[0].StartsWith("dw("))
+            {
+                int size = 2;
+
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
+                line = WORD + size.ToString("X4");
+            }
+            // detect doubles
+            else if (array[0] == "dd" ||
+                array[0].StartsWith("dd("))
+            {
+                int size = 4;
+
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    size *= countElements.Length;
+                }
+
+                line = DOUBLE + size.ToString("X4");
+            }
+        }
+
+        return !string.IsNullOrEmpty(line);
     }
 
     [GeneratedRegex("org 0x[0-9]+")]

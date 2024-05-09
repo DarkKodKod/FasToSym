@@ -2,7 +2,7 @@
 
 namespace FasToSym;
 
-public interface IWriter
+interface IWriter
 {
     public Collection<string> Errors { get; }
     bool GenerateFrom(FasFile fasFile);

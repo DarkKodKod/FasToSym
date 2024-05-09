@@ -7,7 +7,7 @@ static internal class HelpContent
         Console.WriteLine("The symbols generated from fasmarm.exe should use the command line arguments:");
         Console.WriteLine("     -s [filename].fas");
         Console.WriteLine("     -t [outputType]  ");
-        
+
         Console.Write("             valid values: ");
         for (int i = 1; i < (int)OutputSymFormats.Max; i++)
         {
