@@ -153,7 +153,8 @@ internal partial class NoCashGbaSymWriter : IWriter
 
     private bool TestWriteCode16(FileStream fs, in SymbolLine symbol)
     {
-        if (symbol.sourceLine == "code16")
+        if (symbol.sourceLine == "code16" ||
+            symbol.sourceLine == "thumb")
         {
             WriteLine(fs, symbol.address, THUMB);
 
