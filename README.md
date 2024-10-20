@@ -34,7 +34,7 @@ To generate for this emulator use the the following command line:
 ```
 The documentation for its sym file format is here: https://problemkaputt.de/gbahlp.htm#symbolicdebuginfo
 
-### 2.1 GBA symbols for Mesen2.
+### 2.2 GBA symbols for Mesen2.
 
 https://www.mesen.ca/
 
