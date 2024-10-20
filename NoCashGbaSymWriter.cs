@@ -18,11 +18,7 @@ internal partial class NoCashGbaSymWriter : IWriter
     private const string ASCII = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
     private const string POOL = ".pool";   // dummy label(indicates that following is literal pool)
 
-    private struct SymbolLine(ulong address, string sourceLine)
-    {
-        public ulong address = address;
-        public string sourceLine = sourceLine;
-    }
+    private record SymbolLine(ulong Address, string SourceLine);
 
     private readonly Collection<SymbolLine> _symbolInformation = [];
 
@@ -61,7 +57,7 @@ internal partial class NoCashGbaSymWriter : IWriter
 
             if (sourceLines.Length > 0)
             {
-                _symbolInformation.Add(new SymbolLine(assemblyLine.address, sourceLines[0].line));
+                _symbolInformation.Add(new(assemblyLine.address, sourceLines[0].line));
             }
         }
 
@@ -97,11 +93,11 @@ internal partial class NoCashGbaSymWriter : IWriter
             }
             else if (fromLabel == true)
             {
-                string[] array = symbol.sourceLine.Split(' ');
+                string[] array = symbol.SourceLine.Split(' ');
 
                 if (CheckIfIsDataTypes(array, out string line))
                 {
-                    WriteLine(fs, symbol.address, line);
+                    WriteLine(fs, symbol.Address, line);
                     continue;
                 }
             }
@@ -113,14 +109,14 @@ internal partial class NoCashGbaSymWriter : IWriter
 
     private bool TestVariables(FileStream fs, in SymbolLine symbol)
     {
-        string[] array = symbol.sourceLine.Split(' ');
+        string[] array = symbol.SourceLine.Split(' ');
 
         if (array.Length > 1)
         {
             if (CheckIfIsDataTypes(array[1..], out string line))
             {
-                WriteLine(fs, symbol.address, array[0]);
-                WriteLine(fs, symbol.address, line);
+                WriteLine(fs, symbol.Address, array[0]);
+                WriteLine(fs, symbol.Address, line);
 
                 return true;
             }
@@ -131,17 +127,17 @@ internal partial class NoCashGbaSymWriter : IWriter
 
     private bool TestLabel(FileStream fs, in SymbolLine symbol)
     {
-        if (symbol.sourceLine.Contains(':'))
+        if (symbol.SourceLine.Contains(':'))
         {
-            string[] array = symbol.sourceLine.Split(' ');
+            string[] array = symbol.SourceLine.Split(' ');
 
-            WriteLine(fs, symbol.address, array[0][..^1]);
+            WriteLine(fs, symbol.Address, array[0][..^1]);
 
             if (array.Length > 1)
             {
                 if (CheckIfIsDataTypes(array[1..], out string line))
                 {
-                    WriteLine(fs, symbol.address, line);
+                    WriteLine(fs, symbol.Address, line);
                 }
             }
 
@@ -153,10 +149,10 @@ internal partial class NoCashGbaSymWriter : IWriter
 
     private bool TestWriteCode16(FileStream fs, in SymbolLine symbol)
     {
-        if (symbol.sourceLine == "code16" ||
-            symbol.sourceLine == "thumb")
+        if (symbol.SourceLine == "code16" ||
+            symbol.SourceLine == "thumb")
         {
-            WriteLine(fs, symbol.address, THUMB);
+            WriteLine(fs, symbol.Address, THUMB);
 
             return true;
         }
@@ -167,9 +163,9 @@ internal partial class NoCashGbaSymWriter : IWriter
     private bool TestWriteOrg(FileStream fs, in SymbolLine symbol)
     {
         Regex regex = IsOrg();
-        if (regex.IsMatch(symbol.sourceLine))
+        if (regex.IsMatch(symbol.SourceLine))
         {
-            string value = symbol.sourceLine.Split('x')[1];
+            string value = symbol.SourceLine.Split('x')[1];
             int decValue = Convert.ToInt32(value, 16);
             WriteLine(fs, (ulong)decValue, ARM);
 

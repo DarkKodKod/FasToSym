@@ -9,12 +9,12 @@ static internal class HelpContent
         Console.WriteLine("     -t [outputType]  ");
 
         Console.Write("             valid values: ");
-        for (int i = 1; i < (int)OutputSymFormats.Max; i++)
+        for (int i = (int)OutputSymFormats.None + 1; i < (int)OutputSymFormats.Max; i++)
         {
             Console.Write(((OutputSymFormats)i).ToString().ToLower());
 
             if (i < (int)OutputSymFormats.Max - 1)
-                Console.WriteLine(", ");
+                Console.Write(", ");
         }
         Console.WriteLine(Environment.NewLine);
     }

@@ -29,10 +29,7 @@ for (int i = 0; i < args.Length; i++)
     {
         i++;
 
-        string outputType = args[i];
-
-        if (outputType.Equals(OutputSymFormats.NoCashGba.ToString(), StringComparison.CurrentCultureIgnoreCase))
-            outputFormat = OutputSymFormats.NoCashGba;
+        outputFormat = FormatUtils.ConvertToValidFormat(args[i]);
     }
 }
 
@@ -54,6 +51,9 @@ switch (outputFormat)
 {
     case OutputSymFormats.NoCashGba:
         writer = new NoCashGbaSymWriter();
+        break;
+    case OutputSymFormats.Mesen:
+        writer = new MesenSymWriter();
         break;
     case OutputSymFormats.None:
     default:
