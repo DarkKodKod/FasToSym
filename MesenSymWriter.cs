@@ -8,16 +8,10 @@ namespace FasToSym;
 
 internal partial class MesenSymWriter : IWriter
 {
+    private record RomArea(string Label, string Address);
+
     private const string Extension = ".mlb";
-    private const string MEMORY = "GbaMemory";
-    private const string MEMORY_PrgRom = "GbaPrgRom";
-    private const string MEMORY_BootRom = "GbaBootRom";
-    private const string MEMORY_SaveRam = "GbaSaveRam";
-    private const string MEMORY_IntWorkRam = "GbaIntWorkRam";
-    private const string MEMORY_ExtWorkRam = "GbaExtWorkRam";
-    private const string MEMORY_VideoRam = "GbaVideoRam";
-    private const string MEMORY_SpriteRam = "GbaSpriteRam";
-    private const string MEMORY_PaletteRam = "GbaPaletteRam";
+    private static readonly RomArea MEMORY_PrgRom = new("GbaPrgRom", "08000000");
     private const string ARM = "_arm";
     private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
 
@@ -65,7 +59,10 @@ internal partial class MesenSymWriter : IWriter
 
             if (CollectOrg(sourceLines[0].line, out string arm, ref prgRomStartAddress))
             {
-                _symbolInformation.Add(new(assemblyLine.address, arm, MEMORY_PrgRom));
+                if (!string.IsNullOrEmpty(arm))
+                {
+                    _symbolInformation.Add(new(assemblyLine.address, arm, MEMORY_PrgRom.Label));
+                }
             }
 
             if (assemblyLine.address == 0)
@@ -73,7 +70,7 @@ internal partial class MesenSymWriter : IWriter
 
             if (CollectLabels(sourceLines[0].line, out string label))
             {
-                _symbolInformation.Add(new(assemblyLine.address - prgRomStartAddress, label, MEMORY_PrgRom));
+                _symbolInformation.Add(new(assemblyLine.address - prgRomStartAddress, label, MEMORY_PrgRom.Label));
             }
         }
 
@@ -88,12 +85,11 @@ internal partial class MesenSymWriter : IWriter
         if (regex.IsMatch(sourceLine))
         {
             string value = sourceLine.Split('x')[1];
-            ulong decValue = (ulong)Convert.ToInt64(value, 16);
-            outLabel = ARM;
 
-            if (startingAddress == 0)
+            if (value == MEMORY_PrgRom.Address)
             {
-                startingAddress = decValue;
+                outLabel = ARM;
+                startingAddress = (ulong)Convert.ToInt64(value, 16); ;
             }
 
             return true;
@@ -111,7 +107,7 @@ internal partial class MesenSymWriter : IWriter
 
         string label = sourceLine;
         int index = label.IndexOf(':');
-        label = label.Remove(index);
+        label = label[..index];
 
         outLabel = label;
 
