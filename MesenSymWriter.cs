@@ -8,14 +8,23 @@ namespace FasToSym;
 
 internal partial class MesenSymWriter : IWriter
 {
-    private record RomArea(string Label, string Address);
+    enum MemoryArea
+    {
+        GbaPrgRom = 0,
+        GbaExtWorkRam = 1,
+        GbaIntWorkRam = 2
+    }
+
+    private record RomArea(MemoryArea Area, ulong Address);
 
     private const string Extension = ".mlb";
-    private static readonly RomArea MEMORY_PrgRom = new("GbaPrgRom", "08000000");
+    private static readonly RomArea MEMORY_PrgRom = new(MemoryArea.GbaPrgRom, 0x08000000);
+    private static readonly RomArea MEMORY_ExtWorkRam = new(MemoryArea.GbaExtWorkRam, 0x02000000);
+    private static readonly RomArea MEMORY_IntWorkRam = new(MemoryArea.GbaIntWorkRam, 0x03000000);
     private const string ARM = "_arm";
     private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
 
-    private record SymbolLine(ulong Address, string SourceLine, string Region);
+    private record SymbolLine(ulong Address, string SourceLine, RomArea MemoryArea);
 
     private readonly Collection<SymbolLine> _symbolInformation = [];
 
@@ -24,7 +33,9 @@ internal partial class MesenSymWriter : IWriter
     public bool GenerateFrom(FasFile fasFile)
     {
         if (!fasFile.IsValid())
+        {
             return false;
+        }   
 
         string outputFilePath = Path.Combine(fasFile.ParentDirectory, fasFile.FileNameNoExtension + Extension);
 
@@ -48,48 +59,59 @@ internal partial class MesenSymWriter : IWriter
 
     private bool CollectInformation(FasFile fasFile)
     {
-        ulong prgRomStartAddress = 0;
+        RomArea memoryArea = MEMORY_PrgRom;
 
         foreach (FasFile.AssemblyDump assemblyLine in fasFile.AssemblyDumps)
         {
             var sourceLines = fasFile.PreprocessedSourceLines.Where(sl => sl.offset == assemblyLine.offsetPreprocessedSourceLine).ToArray();
 
             if (sourceLines.Length == 0)
-                continue;
-
-            if (CollectOrg(sourceLines[0].line, out string arm, ref prgRomStartAddress))
             {
-                if (!string.IsNullOrEmpty(arm))
+                continue;
+            }   
+
+            if (CollectOrg(sourceLines[0].line, ref memoryArea))
+            {
+                if (memoryArea.Area == MemoryArea.GbaPrgRom)
                 {
-                    _symbolInformation.Add(new(assemblyLine.address, arm, MEMORY_PrgRom.Label));
+                    _symbolInformation.Add(new(assemblyLine.address, ARM, memoryArea));
                 }
             }
 
             if (assemblyLine.address == 0)
+            {
                 continue;
+            }   
 
             if (CollectLabels(sourceLines[0].line, out string label))
             {
-                _symbolInformation.Add(new(assemblyLine.address - prgRomStartAddress, label, MEMORY_PrgRom.Label));
+                _symbolInformation.Add(new(assemblyLine.address - memoryArea.Address, label, memoryArea));
             }
         }
 
         return _symbolInformation.Count > 0;
     }
 
-    private static bool CollectOrg(string sourceLine, out string outLabel, ref ulong startingAddress)
+    private static bool CollectOrg(string sourceLine, ref RomArea memoryArea)
     {
-        outLabel = string.Empty;
-
         Regex regex = IsOrg();
         if (regex.IsMatch(sourceLine))
         {
             string value = sourceLine.Split('x')[1];
 
-            if (value == MEMORY_PrgRom.Address)
+            ulong address = (ulong)Convert.ToInt64(value, 16);
+
+            if (address == MEMORY_PrgRom.Address)
             {
-                outLabel = ARM;
-                startingAddress = (ulong)Convert.ToInt64(value, 16); ;
+                memoryArea = MEMORY_PrgRom;
+            }
+            else if (address == MEMORY_ExtWorkRam.Address)
+            {
+                memoryArea = MEMORY_ExtWorkRam;
+            }
+            else if (address == MEMORY_IntWorkRam.Address)
+            {
+                memoryArea = MEMORY_IntWorkRam;
             }
 
             return true;
@@ -118,9 +140,18 @@ internal partial class MesenSymWriter : IWriter
     {
         foreach (SymbolLine symbol in _symbolInformation)
         {
-            byte[] memoryRegionBytes = new UTF8Encoding(true).GetBytes($"{symbol.Region}:");
+            byte[] memoryRegionBytes = new UTF8Encoding(true).GetBytes($"{Enum.GetName(typeof(MemoryArea), symbol.MemoryArea.Area)}:");
             fs.Write(memoryRegionBytes, 0, memoryRegionBytes.Length);
-            byte[] addressBytes = new UTF8Encoding(true).GetBytes(symbol.Address.ToString("X7") + ":");
+
+            string addressSise = symbol.MemoryArea.Area switch
+            {
+                MemoryArea.GbaPrgRom => "X7",
+                MemoryArea.GbaExtWorkRam => "X6",
+                MemoryArea.GbaIntWorkRam => "X4",
+                _ => throw new NotImplementedException()
+            };
+
+            byte[] addressBytes = new UTF8Encoding(true).GetBytes(symbol.Address.ToString(addressSise) + ":");
             fs.Write(addressBytes, 0, addressBytes.Length);
             byte[] labelBytes = new UTF8Encoding(true).GetBytes($"{symbol.SourceLine}");
             fs.Write(labelBytes, 0, labelBytes.Length);
