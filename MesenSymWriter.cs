@@ -12,7 +12,8 @@ internal partial class MesenSymWriter : IWriter
     {
         GbaPrgRom = 0,
         GbaExtWorkRam = 1,
-        GbaIntWorkRam = 2
+        GbaIntWorkRam = 2,
+        GbaPaletteRam = 3
     }
 
     private record RomArea(MemoryArea Area, ulong Address);
@@ -21,6 +22,7 @@ internal partial class MesenSymWriter : IWriter
     private static readonly RomArea MEMORY_PrgRom = new(MemoryArea.GbaPrgRom, 0x08000000);
     private static readonly RomArea MEMORY_ExtWorkRam = new(MemoryArea.GbaExtWorkRam, 0x02000000);
     private static readonly RomArea MEMORY_IntWorkRam = new(MemoryArea.GbaIntWorkRam, 0x03000000);
+    private static readonly RomArea MEMORY_PaletteRam = new(MemoryArea.GbaPaletteRam, 0x05000000);
     private const string ARM = "_arm";
     private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
 
@@ -101,18 +103,10 @@ internal partial class MesenSymWriter : IWriter
 
             ulong address = (ulong)Convert.ToInt64(value, 16);
 
-            if (address == MEMORY_PrgRom.Address)
-            {
-                memoryArea = MEMORY_PrgRom;
-            }
-            else if (address == MEMORY_ExtWorkRam.Address)
-            {
-                memoryArea = MEMORY_ExtWorkRam;
-            }
-            else if (address == MEMORY_IntWorkRam.Address)
-            {
-                memoryArea = MEMORY_IntWorkRam;
-            }
+            if (address == MEMORY_PrgRom.Address)           { memoryArea = MEMORY_PrgRom; }
+            else if (address == MEMORY_ExtWorkRam.Address)  { memoryArea = MEMORY_ExtWorkRam; }
+            else if (address == MEMORY_IntWorkRam.Address)  { memoryArea = MEMORY_IntWorkRam; }
+            else if (address == MEMORY_PaletteRam.Address)  { memoryArea = MEMORY_PaletteRam; }
 
             return true;
         }
@@ -148,6 +142,7 @@ internal partial class MesenSymWriter : IWriter
                 MemoryArea.GbaPrgRom => "X7",
                 MemoryArea.GbaExtWorkRam => "X6",
                 MemoryArea.GbaIntWorkRam => "X4",
+                MemoryArea.GbaPaletteRam => "X4",
                 _ => throw new NotImplementedException()
             };
 
