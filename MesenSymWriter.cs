@@ -10,19 +10,23 @@ internal partial class MesenSymWriter : IWriter
 {
     enum MemoryArea
     {
-        GbaPrgRom = 0,
-        GbaExtWorkRam = 1,
-        GbaIntWorkRam = 2,
-        GbaPaletteRam = 3
+        GbaPrgRom,
+        GbaExtWorkRam,
+        GbaIntWorkRam,
+        GbaPaletteRam,
+        GbaSpriteRam,
+        GbaVideoRam
     }
 
-    private record RomArea(MemoryArea Area, ulong Address);
+    private record RomArea(MemoryArea Area, ulong Address, string Padding);
 
     private const string Extension = ".mlb";
-    private static readonly RomArea MEMORY_PrgRom = new(MemoryArea.GbaPrgRom, 0x08000000);
-    private static readonly RomArea MEMORY_ExtWorkRam = new(MemoryArea.GbaExtWorkRam, 0x02000000);
-    private static readonly RomArea MEMORY_IntWorkRam = new(MemoryArea.GbaIntWorkRam, 0x03000000);
-    private static readonly RomArea MEMORY_PaletteRam = new(MemoryArea.GbaPaletteRam, 0x05000000);
+    private static readonly RomArea MEMORY_PrgRom = new(MemoryArea.GbaPrgRom, 0x08000000, "X7");
+    private static readonly RomArea MEMORY_ExtWorkRam = new(MemoryArea.GbaExtWorkRam, 0x02000000, "X6");
+    private static readonly RomArea MEMORY_IntWorkRam = new(MemoryArea.GbaIntWorkRam, 0x03000000, "X4");
+    private static readonly RomArea MEMORY_PaletteRam = new(MemoryArea.GbaPaletteRam, 0x05000000, "X4");
+    private static readonly RomArea MEMORY_VideoRAM = new(MemoryArea.GbaVideoRam, 0x06000000, "X5");
+    private static readonly RomArea MEMORY_OAMRam = new(MemoryArea.GbaSpriteRam, 0x07000000, "X4");
     private const string ARM = "_arm";
     private readonly byte[] Newline = Encoding.ASCII.GetBytes(Environment.NewLine);
 
@@ -107,6 +111,8 @@ internal partial class MesenSymWriter : IWriter
             else if (address == MEMORY_ExtWorkRam.Address)  { memoryArea = MEMORY_ExtWorkRam; }
             else if (address == MEMORY_IntWorkRam.Address)  { memoryArea = MEMORY_IntWorkRam; }
             else if (address == MEMORY_PaletteRam.Address)  { memoryArea = MEMORY_PaletteRam; }
+            else if (address == MEMORY_VideoRAM.Address)    { memoryArea = MEMORY_VideoRAM; }
+            else if (address == MEMORY_OAMRam.Address)      { memoryArea = MEMORY_OAMRam; }
 
             return true;
         }
@@ -136,17 +142,7 @@ internal partial class MesenSymWriter : IWriter
         {
             byte[] memoryRegionBytes = new UTF8Encoding(true).GetBytes($"{Enum.GetName(typeof(MemoryArea), symbol.MemoryArea.Area)}:");
             fs.Write(memoryRegionBytes, 0, memoryRegionBytes.Length);
-
-            string addressSise = symbol.MemoryArea.Area switch
-            {
-                MemoryArea.GbaPrgRom => "X7",
-                MemoryArea.GbaExtWorkRam => "X6",
-                MemoryArea.GbaIntWorkRam => "X4",
-                MemoryArea.GbaPaletteRam => "X4",
-                _ => throw new NotImplementedException()
-            };
-
-            byte[] addressBytes = new UTF8Encoding(true).GetBytes(symbol.Address.ToString(addressSise) + ":");
+            byte[] addressBytes = new UTF8Encoding(true).GetBytes(symbol.Address.ToString(symbol.MemoryArea.Padding) + ":");
             fs.Write(addressBytes, 0, addressBytes.Length);
             byte[] labelBytes = new UTF8Encoding(true).GetBytes($"{symbol.SourceLine}");
             fs.Write(labelBytes, 0, labelBytes.Length);
