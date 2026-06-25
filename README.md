@@ -1,7 +1,7 @@
 # FasToSym
 Command line tool to convert .fas symbols files from FASM (Flat assembler) to any type of Symbol format.
 
-> ⚠️If you are here because you want to understand the symmbol file, FAS, from FASM, I think here you will find a good example of how to read the data and with this tool it should be possible to extend it to convert the FAS format file to anything.
+> ⚠️If you are here because you want to understand the symbol file format, FAS, from FASM, I think here you will find a good example here of how to read the data. It should be possible to extend the tool's output to convert the FAS format file to other formats.
 
 ## 1. Usage
 
