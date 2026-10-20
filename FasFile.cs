@@ -51,18 +51,28 @@ public class FasFile
         public ushort scale;
     }
 
-    public class SymbolTable
+    public class SymbolTable(
+        ulong address,
+        ushort flags,
+        byte dataSize,
+        SymbolValueType addressType,
+        ExtendedSIB extendedSIB,
+        short numberOfPassDefined,
+        short numberOfPassUsed,
+        uint relativeSection,
+        uint offsetSymbolName,
+        uint offsetInPreprocessedSource)
     {
-        public ulong address;
-        public ushort flags;
-        public byte dataSize;
-        public SymbolValueType addressType;
-        public ExtendedSIB extendedSIB;
-        public short numberOfPassDefined;
-        public short numberOfPassUsed;
-        public uint relativeSection;
-        public uint offsetSymbolName;
-        public uint offsetInPreprocessedSource;
+        public ulong Address { get; init; } = address;
+        public ushort Flags { get; init; } = flags;
+        public byte DataSize { get; init; } = dataSize;
+        public SymbolValueType AddressType { get; init; } = addressType;
+        public ExtendedSIB ExtendedSIB { get; init; } = extendedSIB;
+        public short NumberOfPassDefined { get; init; } = numberOfPassDefined;
+        public short NumberOfPassUsed { get; init; } = numberOfPassUsed;
+        public uint RelativeSection { get; init; } = relativeSection;
+        public uint OffsetSymbolName { get; init; } = offsetSymbolName;
+        public uint OffsetInPreprocessedSource { get; init; } = offsetInPreprocessedSource;
 
         public const int Size = 32;
     }
@@ -79,17 +89,34 @@ public class FasFile
         public bool ignoredByAssembler;
     }
 
-    public class AssemblyDump
+    public class AssemblyDump(
+        uint offsetOutputFile,
+        uint offsetPreprocessedSourceLine,
+        ulong address,
+        ExtendedSIB extendedSIB,
+        uint sectionOrExternalSymbol,
+        byte typeOfAddressValue,
+        byte typeOfCode,
+        byte assemblyWasTakingPlaceVirtualBlock,
+        byte higerBitsOfValueOfAddress)
     {
-        public uint offsetOutputFile;
-        public uint offsetPreprocessedSourceLine;
-        public ulong address;
-        public ExtendedSIB extendedSIB;
-        public uint sectionOrExternalSymbol;
-        public byte typeOfAddressValue;
-        public byte typeOfCode;
-        public byte assemblyWasTakingPlaceVirtualBlock;
-        public byte higerBitsOfValueOfAddress;
+        public uint OffsetOutputFile { get; init; } = offsetOutputFile;
+        public uint OffsetPreprocessedSourceLine { get; init; } = offsetPreprocessedSourceLine;
+        public ulong Address { get; init; } = address;
+        public uint Address32 { get; init; } = (uint)(address & 0xFFFFFFFF);
+        public ExtendedSIB ExtendedSIB { get; init; } = extendedSIB;
+        public uint SectionOrExternalSymbol { get; init; } = sectionOrExternalSymbol;
+        public byte HigerBitsOfValueOfAddress { get; init; } = higerBitsOfValueOfAddress;
+
+        public SymbolValueType TypeOfAddressValue => (SymbolValueType)typeOfAddressValue;
+        public bool IsVirtual => (assemblyWasTakingPlaceVirtualBlock & 0x01) != 0;
+        public bool IsOmittedFromBinary => (assemblyWasTakingPlaceVirtualBlock & 0x02) != 0;
+        public CodeSize CodeSize => typeOfCode switch
+        {
+            64 => CodeSize.Instructions_64_bit,
+            32 or 8 => CodeSize.Instructions_32_bit,
+            16 or 4 or _ => CodeSize.Instructions_16_bit
+        };
 
         public const int Size = 28;
     }
@@ -109,25 +136,19 @@ public class FasFile
     }
 
     private readonly string _inputFile = string.Empty;
+    private int _offsetOfEndOfAssemblyInOutputFile;
     private Header _header;
-    private readonly Collection<string> _stringTable = [];
-    private readonly Collection<SymbolTable> _symbols = [];
-    private readonly Collection<int> _sectionNames = [];
-    private readonly Collection<PreprocessedSourceLine> _preprocessedSourceLines = [];
-    private readonly Collection<AssemblyDump> _assemblyDumps = [];
-    private readonly Collection<SymbolReferencesDump> _referencesDump = [];
-    private int _offsetOfEndOfAssemblyInOutputFile = 0;
 
     public Collection<string> Errors { get; } = [];
+    public Collection<string> StringTable { get; } = [];
+    public Collection<SymbolTable> SymbolsTable { get; } = [];
+    public Collection<int> SectionNames { get; } = [];
+    public Collection<PreprocessedSourceLine> PreprocessedSourceLines { get; } = [];
+    public Collection<AssemblyDump> AssemblyDumps { get; } = [];
+    public Collection<SymbolReferencesDump> SymbolReferencesDumps { get; } = [];
+
     public string ParentDirectory { get; } = string.Empty;
     public string FileNameNoExtension { get; } = string.Empty;
-    public Collection<string> StringTable { get => _stringTable; }
-    public Collection<SymbolTable> SymbolsTable { get => _symbols; }
-    public Collection<int> SectionNames { get => _sectionNames; }
-    public Collection<PreprocessedSourceLine> PreprocessedSourceLines { get => _preprocessedSourceLines; }
-    public Collection<AssemblyDump> AssemblyDumps { get => _assemblyDumps; }
-    public Collection<SymbolReferencesDump> SymbolReferencesDumps { get => _referencesDump; }
-    public int OffsetOfEndOfAssemblyInOutputFile { get => _offsetOfEndOfAssemblyInOutputFile; }
     public string InputFileName { get; private set; } = string.Empty;
     public string OutputFileName { get; private set; } = string.Empty;
 
@@ -323,7 +344,7 @@ public class FasFile
 
             string str = Utils.CstrToString(tmp);
 
-            _stringTable.Add(str);
+            StringTable.Add(str);
 
             if (offset == _header.offsetInputFileNameStringsTable)
                 InputFileName = str;
@@ -401,21 +422,21 @@ public class FasFile
 
         for (int i = 0; i < numSymbols; i++)
         {
-            SymbolTable symbolTable = new()
+            SymbolTable symbolTable = new(
+                address: br.ReadUInt64(),
+                flags: br.ReadUInt16(),
+                dataSize: br.ReadByte(),
+                addressType: (SymbolValueType)br.ReadByte(),
+                extendedSIB: ReadExtendedSIB(br),
+                numberOfPassDefined: br.ReadInt16(),
+                numberOfPassUsed: br.ReadInt16(),
+                relativeSection: br.ReadUInt32(),
+                offsetSymbolName: br.ReadUInt32(),
+                offsetInPreprocessedSource: br.ReadUInt32())
             {
-                address = br.ReadUInt64(),
-                flags = br.ReadUInt16(),
-                dataSize = br.ReadByte(),
-                addressType = (SymbolValueType)br.ReadByte(),
-                extendedSIB = ReadExtendedSIB(br),
-                numberOfPassDefined = br.ReadInt16(),
-                numberOfPassUsed = br.ReadInt16(),
-                relativeSection = br.ReadUInt32(),
-                offsetSymbolName = br.ReadUInt32(),
-                offsetInPreprocessedSource = br.ReadUInt32()
             };
 
-            _symbols.Add(symbolTable);
+            SymbolsTable.Add(symbolTable);
         }
 
         return true;
@@ -507,7 +528,7 @@ public class FasFile
             line.line = actualLine;
             line.ignoredByAssembler = ignoredByAssembler;
 
-            _preprocessedSourceLines.Add(line);
+            PreprocessedSourceLines.Add(line);
         }
 
         return true;
@@ -666,20 +687,20 @@ public class FasFile
 
         for (int i = 0; i < length; i++)
         {
-            AssemblyDump assemblyDump = new()
+            AssemblyDump assemblyDump = new(
+                offsetOutputFile: br.ReadUInt32(),
+                offsetPreprocessedSourceLine: br.ReadUInt32(),
+                address: br.ReadUInt64(),
+                extendedSIB: ReadExtendedSIB(br),
+                sectionOrExternalSymbol: br.ReadUInt32(),
+                typeOfAddressValue: br.ReadByte(),
+                typeOfCode: br.ReadByte(),
+                assemblyWasTakingPlaceVirtualBlock: br.ReadByte(),
+                higerBitsOfValueOfAddress: br.ReadByte())
             {
-                offsetOutputFile = br.ReadUInt32(),
-                offsetPreprocessedSourceLine = br.ReadUInt32(),
-                address = br.ReadUInt64(),
-                extendedSIB = ReadExtendedSIB(br),
-                sectionOrExternalSymbol = br.ReadUInt32(),
-                typeOfAddressValue = br.ReadByte(),
-                typeOfCode = br.ReadByte(),
-                assemblyWasTakingPlaceVirtualBlock = br.ReadByte(),
-                higerBitsOfValueOfAddress = br.ReadByte()
             };
 
-            _assemblyDumps.Add(assemblyDump);
+            AssemblyDumps.Add(assemblyDump);
         }
 
         _offsetOfEndOfAssemblyInOutputFile = br.ReadInt32();
@@ -704,10 +725,17 @@ public class FasFile
 
         for (int i = 0; i < numSections; i++)
         {
-            _sectionNames.Add(br.ReadInt32());
+            SectionNames.Add(br.ReadInt32());
         }
 
         return true;
+    }
+
+    public enum CodeSize
+    {
+        Instructions_16_bit,
+        Instructions_32_bit,
+        Instructions_64_bit
     }
 
     // Table 2.1  Symbol flags
@@ -939,7 +967,7 @@ public class FasFile
                 offsetStructure = br.ReadUInt32()
             };
 
-            _referencesDump.Add(referenceDump);
+            SymbolReferencesDumps.Add(referenceDump);
         }
 
         return true;

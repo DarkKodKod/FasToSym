@@ -18,7 +18,7 @@ internal partial class NoCashGbaSymWriter : IWriter
     private const string ASCII = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
     private const string POOL = ".pool";   // dummy label(indicates that following is literal pool)
 
-    private record SymbolLine(ulong Address, string SourceLine);
+    private record SymbolLine(uint Address, string SourceLine);
 
     private readonly Collection<SymbolLine> _symbolInformation = [];
 
@@ -49,16 +49,42 @@ internal partial class NoCashGbaSymWriter : IWriter
         return true;
     }
 
+    private static bool IsIWRAM(uint address)
+    {
+        return address >= 0x03000000 && address <= 0x03007FFF;
+    }
+
+    private static bool IsEWRAM(uint address)
+    {
+        return address >= 0x02000000 && address <= 0x0203FFFF;
+    }
+
     private bool CollectInformation(FasFile fasFile)
     {
         foreach (FasFile.AssemblyDump assemblyLine in fasFile.AssemblyDumps)
         {
-            var sourceLines = fasFile.PreprocessedSourceLines.Where(sl => sl.offset == assemblyLine.offsetPreprocessedSourceLine).ToArray();
+            FasFile.PreprocessedSourceLine[] sourceLines = [.. fasFile.PreprocessedSourceLines.Where(sl => sl.offset == assemblyLine.OffsetPreprocessedSourceLine)];
 
-            if (sourceLines.Length > 0)
+            if (sourceLines.Length == 0)
             {
-                _symbolInformation.Add(new(assemblyLine.address, sourceLines[0].line));
+                continue;
             }
+
+            if (assemblyLine.IsOmittedFromBinary)
+            {
+                continue;
+            }
+
+            if (assemblyLine.IsVirtual && assemblyLine.OffsetOutputFile == 0)
+            {
+                if (!IsIWRAM(assemblyLine.Address32) &&
+                    !IsEWRAM(assemblyLine.Address32))
+                {
+                    continue;
+                }
+            }
+
+            _symbolInformation.Add(new(assemblyLine.Address32, sourceLines[0].line));
         }
 
         return _symbolInformation.Count > 0;
@@ -166,8 +192,8 @@ internal partial class NoCashGbaSymWriter : IWriter
         if (regex.IsMatch(symbol.SourceLine))
         {
             string value = symbol.SourceLine.Split('x')[1];
-            int decValue = Convert.ToInt32(value, 16);
-            WriteLine(fs, (ulong)decValue, ARM);
+            uint decValue = Convert.ToUInt32(value, 16);
+            WriteLine(fs, decValue, ARM);
 
             return true;
         }
@@ -175,7 +201,7 @@ internal partial class NoCashGbaSymWriter : IWriter
         return false;
     }
 
-    private void WriteLine(FileStream fs, ulong address, string text)
+    private void WriteLine(FileStream fs, uint address, string text)
     {
         byte[] addressBytes = new UTF8Encoding(true).GetBytes(address.ToString("X8"));
         fs.Write(addressBytes, 0, addressBytes.Length);
@@ -184,7 +210,7 @@ internal partial class NoCashGbaSymWriter : IWriter
         fs.Write(Newline, 0, Newline.Length);
     }
 
-    private bool CheckIfIsDataTypes(in string[] array, out string line)
+    private static bool CheckIfIsDataTypes(in string[] array, out string line)
     {
         line = string.Empty;
 
@@ -208,9 +234,21 @@ internal partial class NoCashGbaSymWriter : IWriter
             else if (array[0] == "dw" ||
                 array[0].StartsWith("dw("))
             {
+                string[] fixedLine = new string[2];
+
+                if (array[0].StartsWith("dw("))
+                {
+                    fixedLine[0] = "dw";
+                    fixedLine[1] = array[0][2..];
+                }
+                else
+                {
+                    fixedLine = array;
+                }
+
                 int size = 2;
 
-                string[] countElements = array[1].Split(',');
+                string[] countElements = fixedLine[1].Split(',');
                 if (countElements.Length > 1)
                 {
                     size *= countElements.Length;
