@@ -13,8 +13,8 @@ internal partial class NoCashGbaSymWriter : IWriter
     private const string ARM = ".arm";    // following code is in 32bit/ARM format
     private const string THUMB = ".thumb";  // following code is in 16bit/THUMB format
     private const string BYTE = ".byt:";   // next NNNN bytes are 8bit data(dcb lines)
-    private const string WORD = ".wrd:";   // next NNNN bytes are 16bit data(dcw lines)
-    private const string DOUBLE = ".dbl:";   // next NNNN bytes are 32bit data(dcd lines)
+    private const string HALF = ".wrd:";   // next NNNN bytes are 16bit data(dcw lines)
+    private const string WORD = ".dbl:";   // next NNNN bytes are 32bit data(dcd lines)
     private const string ASCII = ".asc:";   // next NNNN bytes are ascii data(quoted dcb lines)
     private const string POOL = ".pool";   // dummy label(indicates that following is literal pool)
 
@@ -214,62 +214,63 @@ internal partial class NoCashGbaSymWriter : IWriter
     {
         line = string.Empty;
 
-        if (array.Length > 0)
+        if (array.Length > 1)
         {
-            // detect bytes
-            if (array[0] == "db" ||
-                array[0].StartsWith("db("))
+            static string DetectType((string type, int size, string name)[] types, in string[] array)
             {
-                int size = 1;
+                string outputLine = string.Empty;
 
-                string[] countElements = array[1].Split(',');
-                if (countElements.Length > 1)
+                for (int i = 0; i < types.Length; i++)
                 {
-                    size *= countElements.Length;
+                    string type = types[i].type;
+
+                    if (array[0] == type ||
+                        array[0].StartsWith($"{type}("))
+                    {
+                        int dataSize = types[i].size;
+
+                        string[] countElements = array[1].Split(',');
+                        if (countElements.Length > 1)
+                        {
+                            dataSize *= countElements.Length;
+                        }
+
+                        outputLine = types[i].name + dataSize.ToString("X4");
+
+                        break;
+                    }
                 }
 
-                line = BYTE + size.ToString("X4");
+                return outputLine;
             }
-            // detect words
-            else if (array[0] == "dw" ||
-                array[0].StartsWith("dw("))
-            {
-                string[] fixedLine = new string[2];
 
-                if (array[0].StartsWith("dw("))
-                {
-                    fixedLine[0] = "dw";
-                    fixedLine[1] = array[0][2..];
-                }
-                else
-                {
-                    fixedLine = array;
-                }
+            line = DetectType([("db", 1, BYTE), ("dh", 2, HALF), ("dw", 4, WORD)], array);
 
-                int size = 2;
-
-                string[] countElements = fixedLine[1].Split(',');
-                if (countElements.Length > 1)
-                {
-                    size *= countElements.Length;
-                }
-
-                line = WORD + size.ToString("X4");
-            }
-            // detect doubles
-            else if (array[0] == "dd" ||
-                array[0].StartsWith("dd("))
-            {
-                int size = 4;
-
-                string[] countElements = array[1].Split(',');
-                if (countElements.Length > 1)
-                {
-                    size *= countElements.Length;
-                }
-
-                line = DOUBLE + size.ToString("X4");
-            }
+//            else if (array[0] == "dh" ||
+//                array[0].StartsWith("dh("))
+//            {
+//                string[] fixedLine = new string[2];
+//
+//                if (array[0].StartsWith("dw("))
+//                {
+//                    fixedLine[0] = "dw";
+//                    fixedLine[1] = array[0][2..];
+//                }
+//                else
+//                {
+//                    fixedLine = array;
+//                }
+//
+//                int size = 2;
+//
+//                string[] countElements = fixedLine[1].Split(',');
+//                if (countElements.Length > 1)
+//                {
+//                    size *= countElements.Length;
+//                }
+//
+//                line = HALF + size.ToString("X4");
+//            }
         }
 
         return !string.IsNullOrEmpty(line);

@@ -11,18 +11,7 @@ public class FasFile
     private const int MayorVersion = 1;
     private const int MinorVersion = 73;
 
-    private static class Utils
-    {
-        static public string CstrToString(byte[] data)
-        {
-            int inx = Array.FindIndex(data, 0, (x) => x == 0); //search for 0
-            if (inx >= 0)
-                return (Encoding.GetString(data, 0, inx));
-            else
-                return (Encoding.GetString(data));
-        }
-    }
-
+    #region Data Types
     private struct Header
     {
         public byte mayorVersion;
@@ -128,15 +117,9 @@ public class FasFile
 
         public const int Size = 8;
     }
-
-    public enum LoadedFrom
-    {
-        Source = 0,
-        GeneratedByMicroinstruction
-    }
+    #endregion
 
     private readonly string _inputFile = string.Empty;
-    private int _offsetOfEndOfAssemblyInOutputFile;
     private Header _header;
 
     public Collection<string> Errors { get; } = [];
@@ -163,7 +146,7 @@ public class FasFile
 
         _inputFile = fasFilePath;
 
-        string fileName = Path.GetFileNameWithoutExtension(fasFilePath);
+        string? fileName = Path.GetFileNameWithoutExtension(fasFilePath);
         string? parentDirectory = Path.GetDirectoryName(fasFilePath);
 
         if (string.IsNullOrEmpty(parentDirectory))
@@ -217,6 +200,7 @@ public class FasFile
         }
     }
 
+    #region Header
     // Table 1  Header
     //  /-------------------------------------------------------------------------\
     //  | Offset | Size    | Description                                          |
@@ -313,7 +297,9 @@ public class FasFile
 
         return true;
     }
+    #endregion
 
+    #region String Table
     // The strings table contains just a sequence of ASCIIZ strings, which may
     // be referred to by other parts of the file. It contains the names of
     // main input file, the output file, and the names of the sections and
@@ -361,7 +347,9 @@ public class FasFile
 
         return true;
     }
+    #endregion
 
+    #region Symbols Table
     // Table 2  Symbol structure
     //  /-------------------------------------------------------------------------\
     //  | Offset | Size  | Description                                            |
@@ -427,7 +415,7 @@ public class FasFile
                 flags: br.ReadUInt16(),
                 dataSize: br.ReadByte(),
                 addressType: (SymbolValueType)br.ReadByte(),
-                extendedSIB: ReadExtendedSIB(br),
+                extendedSIB: Utils.ReadExtendedSIB(br),
                 numberOfPassDefined: br.ReadInt16(),
                 numberOfPassUsed: br.ReadInt16(),
                 relativeSection: br.ReadUInt32(),
@@ -441,7 +429,9 @@ public class FasFile
 
         return true;
     }
+    #endregion
 
+    #region Preprocessed Source
     // Table 3  Preprocessed line
     //  /--------------------------------------------------------------------------\
     //  | Offset | Size  | Value                                                   |
@@ -630,7 +620,9 @@ public class FasFile
 
         return bytesCounter;
     }
+    #endregion
 
+    #region Assembly Dump
     // Table 4  Row of the assembly dump
     //  /-------------------------------------------------------------------------\
     //  | Offset | Size  | Description                                            |
@@ -691,7 +683,7 @@ public class FasFile
                 offsetOutputFile: br.ReadUInt32(),
                 offsetPreprocessedSourceLine: br.ReadUInt32(),
                 address: br.ReadUInt64(),
-                extendedSIB: ReadExtendedSIB(br),
+                extendedSIB: Utils.ReadExtendedSIB(br),
                 sectionOrExternalSymbol: br.ReadUInt32(),
                 typeOfAddressValue: br.ReadByte(),
                 typeOfCode: br.ReadByte(),
@@ -703,11 +695,11 @@ public class FasFile
             AssemblyDumps.Add(assemblyDump);
         }
 
-        _offsetOfEndOfAssemblyInOutputFile = br.ReadInt32();
-
         return true;
     }
+    #endregion
 
+    #region Section Names Table
     // The section names table exists only when the output format was an object
     // file (ELF or COFF), and it is an array of 4-byte entries, each being an
     // offset of the name of the section in the strings table.
@@ -729,6 +721,45 @@ public class FasFile
         }
 
         return true;
+    }
+    #endregion
+
+    #region Symbol Reference Dump
+    // The symbol references dump contains an array of 8-byte structures, each
+    // one describes an event of some symbol being used.The first double word
+    // of such structure contains an offset of symbol in the symbols table,
+    // and the second double word is an offset of structure in assembly dump,
+    // which specifies at what moment the symbol was referenced.
+    private bool ReadSymbolReferenceDump(BinaryReader br)
+    {
+        if (_header.offsetSymbolReferencesDump != br.BaseStream.Position)
+        {
+            Errors.Add("Error: Symbol references is read at the wrong position");
+            return false;
+        }
+
+        int length = _header.lengthSymbolReferencesDump / SymbolReferencesDump.Size;
+
+        for (int i = 0; i < length; i++)
+        {
+            SymbolReferencesDump referenceDump = new()
+            {
+                offsetSymbol = br.ReadUInt32(),
+                offsetStructure = br.ReadUInt32()
+            };
+
+            SymbolReferencesDumps.Add(referenceDump);
+        }
+
+        return true;
+    }
+    #endregion
+
+    #region Enums
+    public enum LoadedFrom
+    {
+        Source = 0,
+        GeneratedByMicroinstruction
     }
 
     public enum CodeSize
@@ -943,44 +974,30 @@ public class FasFile
         EIP = 0x94,
         RIP = 0x98
     }
+    #endregion
 
-    // The symbol references dump contains an array of 8-byte structures, each
-    // one describes an event of some symbol being used.The first double word
-    // of such structure contains an offset of symbol in the symbols table,
-    // and the second double word is an offset of structure in assembly dump,
-    // which specifies at what moment the symbol was referenced.
-    private bool ReadSymbolReferenceDump(BinaryReader br)
+    #region Utilities
+    private static class Utils
     {
-        if (_header.offsetSymbolReferencesDump != br.BaseStream.Position)
+        static public string CstrToString(byte[] data)
         {
-            Errors.Add("Error: Symbol references is read at the wrong position");
-            return false;
+            int inx = Array.FindIndex(data, 0, (x) => x == 0); //search for 0
+            if (inx >= 0)
+                return (Encoding.GetString(data, 0, inx));
+            else
+                return (Encoding.GetString(data));
         }
 
-        int length = _header.lengthSymbolReferencesDump / SymbolReferencesDump.Size;
-
-        for (int i = 0; i < length; i++)
+        public static ExtendedSIB ReadExtendedSIB(BinaryReader br)
         {
-            SymbolReferencesDump referenceDump = new()
+            ExtendedSIB extendedSIB = new()
             {
-                offsetSymbol = br.ReadUInt32(),
-                offsetStructure = br.ReadUInt32()
+                registerCode = (RegisterCode)br.ReadInt16(),
+                scale = br.ReadUInt16()
             };
 
-            SymbolReferencesDumps.Add(referenceDump);
+            return extendedSIB;
         }
-
-        return true;
     }
-
-    private static ExtendedSIB ReadExtendedSIB(BinaryReader br)
-    {
-        ExtendedSIB extendedSIB = new()
-        {
-            registerCode = (RegisterCode)br.ReadInt16(),
-            scale = br.ReadUInt16()
-        };
-
-        return extendedSIB;
-    }
+    #endregion
 }
