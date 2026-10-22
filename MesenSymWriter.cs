@@ -93,7 +93,7 @@ internal partial class MesenSymWriter : IWriter
 
             if (assemblyLine.IsVirtual && assemblyLine.OffsetOutputFile == 0)
             {
-                bool isVirtualUsingAlias = (ulong)(assemblyLine.Address & 0xFFFFFFFF00000000) != 0;
+                bool isVirtualUsingAlias = (assemblyLine.Address & 0xFFFFFFFF00000000) != 0;
 
                 if (isVirtualUsingAlias)
                 {
