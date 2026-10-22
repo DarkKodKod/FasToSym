@@ -11,7 +11,7 @@ public class FasFile
     private const int MayorVersion = 1;
     private const int MinorVersion = 73;
 
-    #region Data Types
+    #region Data Structure
     private struct Header
     {
         public byte mayorVersion;
@@ -119,7 +119,6 @@ public class FasFile
     }
     #endregion
 
-    private readonly string _inputFile = string.Empty;
     private Header _header;
 
     public Collection<string> Errors { get; } = [];
@@ -134,6 +133,7 @@ public class FasFile
     public string FileNameNoExtension { get; } = string.Empty;
     public string InputFileName { get; private set; } = string.Empty;
     public string OutputFileName { get; private set; } = string.Empty;
+    public int OffsetOfEndOfAssemblyInOutputFile { get; private set; }
 
     public FasFile(string fasFilePath)
     {
@@ -143,8 +143,6 @@ public class FasFile
             Errors.Add("Error: Input file is missing");
             return;
         }
-
-        _inputFile = fasFilePath;
 
         string? fileName = Path.GetFileNameWithoutExtension(fasFilePath);
         string? parentDirectory = Path.GetDirectoryName(fasFilePath);
@@ -158,7 +156,7 @@ public class FasFile
         ParentDirectory = parentDirectory;
         FileNameNoExtension = fileName;
 
-        ProcessFile();
+        ProcessFile(fasFilePath);
     }
 
     public bool IsValid()
@@ -166,9 +164,9 @@ public class FasFile
         return Errors.Count == 0;
     }
 
-    private void ProcessFile()
+    private void ProcessFile(string inputFile)
     {
-        using FileStream fs = new(_inputFile, FileMode.Open, FileAccess.Read);
+        using FileStream fs = new(inputFile, FileMode.Open, FileAccess.Read);
         using BinaryReader br = new(fs);
 
         br.BaseStream.Position = 0;
@@ -694,6 +692,8 @@ public class FasFile
 
             AssemblyDumps.Add(assemblyDump);
         }
+
+        OffsetOfEndOfAssemblyInOutputFile = br.ReadInt32();
 
         return true;
     }

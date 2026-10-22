@@ -93,6 +93,14 @@ internal partial class MesenSymWriter : IWriter
 
             if (assemblyLine.IsVirtual && assemblyLine.OffsetOutputFile == 0)
             {
+                bool isVirtualUsingAlias = (ulong)(assemblyLine.Address & 0xFFFFFFFF00000000) != 0;
+
+                if (isVirtualUsingAlias)
+                {
+                    Errors.Add("Error: Virtual block with aliases is not supported.");
+                    return false;
+                }
+
                 if (!IsIWRAM(assemblyLine.Address32) &&
                     !IsEWRAM(assemblyLine.Address32))
                 {

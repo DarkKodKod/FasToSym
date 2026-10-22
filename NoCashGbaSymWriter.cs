@@ -210,67 +210,41 @@ internal partial class NoCashGbaSymWriter : IWriter
         fs.Write(Newline, 0, Newline.Length);
     }
 
+    private static string DetectType((string type, int size, string name)[] types, in string[] array)
+    {
+        string outputLine = string.Empty;
+
+        for (int i = 0; i < types.Length; i++)
+        {
+            string type = types[i].type;
+
+            if (array[0] == type ||
+                array[0].StartsWith($"{type}("))
+            {
+                int dataSize = types[i].size;
+
+                string[] countElements = array[1].Split(',');
+                if (countElements.Length > 1)
+                {
+                    dataSize *= countElements.Length;
+                }
+
+                outputLine = types[i].name + dataSize.ToString("X4");
+
+                break;
+            }
+        }
+
+        return outputLine;
+    }
+
     private static bool CheckIfIsDataTypes(in string[] array, out string line)
     {
         line = string.Empty;
 
         if (array.Length > 1)
         {
-            static string DetectType((string type, int size, string name)[] types, in string[] array)
-            {
-                string outputLine = string.Empty;
-
-                for (int i = 0; i < types.Length; i++)
-                {
-                    string type = types[i].type;
-
-                    if (array[0] == type ||
-                        array[0].StartsWith($"{type}("))
-                    {
-                        int dataSize = types[i].size;
-
-                        string[] countElements = array[1].Split(',');
-                        if (countElements.Length > 1)
-                        {
-                            dataSize *= countElements.Length;
-                        }
-
-                        outputLine = types[i].name + dataSize.ToString("X4");
-
-                        break;
-                    }
-                }
-
-                return outputLine;
-            }
-
             line = DetectType([("db", 1, BYTE), ("dh", 2, HALF), ("dw", 4, WORD)], array);
-
-//            else if (array[0] == "dh" ||
-//                array[0].StartsWith("dh("))
-//            {
-//                string[] fixedLine = new string[2];
-//
-//                if (array[0].StartsWith("dw("))
-//                {
-//                    fixedLine[0] = "dw";
-//                    fixedLine[1] = array[0][2..];
-//                }
-//                else
-//                {
-//                    fixedLine = array;
-//                }
-//
-//                int size = 2;
-//
-//                string[] countElements = fixedLine[1].Split(',');
-//                if (countElements.Length > 1)
-//                {
-//                    size *= countElements.Length;
-//                }
-//
-//                line = HALF + size.ToString("X4");
-//            }
         }
 
         return !string.IsNullOrEmpty(line);
